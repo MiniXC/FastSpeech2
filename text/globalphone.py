@@ -1,0 +1,1 @@
+valid_symbols = ['k', 's', 'etu', 'e', 'z', 'r', 'al', 'eU', 't', 'aU', 'C', 'ts', 'h', 'spn', 'uel', 'b', 'u', 'l', 'o', 'd', 'v', 'n', 'atu', 'p', 'm', 'ae', 'oe', 'ng', 'ue', 'S', 'ol', 'f', 'aI', 'a', 'i', 'oel', 'x', 'g', 'ul', 'il', 'el', 'j']

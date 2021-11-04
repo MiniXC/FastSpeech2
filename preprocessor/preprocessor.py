@@ -1,6 +1,7 @@
 import os
 import random
 import json
+from tqdm.contrib.concurrent import thread_map
 
 import tgt
 import librosa
@@ -50,6 +51,17 @@ class Preprocessor:
             config["preprocessing"]["mel"]["mel_fmax"],
         )
 
+
+    def get_tg_path(self, speaker, basename):
+        tg_path = os.path.join(
+            self.out_dir, "TextGrid", speaker, "{}.TextGrid".format(basename)
+        )
+        if not os.path.exists(tg_path):
+            tg_path = os.path.join(
+                self.out_dir, speaker, "{}.TextGrid".format(basename)
+            )
+        return tg_path
+
     def build_from_path(self):
         os.makedirs((os.path.join(self.out_dir, "mel")), exist_ok=True)
         os.makedirs((os.path.join(self.out_dir, "pitch")), exist_ok=True)
@@ -71,9 +83,7 @@ class Preprocessor:
                     continue
 
                 basename = wav_name.split(".")[0]
-                tg_path = os.path.join(
-                    self.out_dir, "TextGrid", speaker, "{}.TextGrid".format(basename)
-                )
+                tg_path = self.get_tg_path(speaker, basename)
                 if os.path.exists(tg_path):
                     ret = self.process_utterance(speaker, basename)
                     if ret is None:
@@ -88,6 +98,38 @@ class Preprocessor:
                     energy_scaler.partial_fit(energy.reshape((-1, 1)))
 
                 n_frames += n
+
+        """
+        speakers = {}
+        speaker_list = []
+        basename_list = []
+        for i, speaker in enumerate(tqdm(os.listdir(self.in_dir))):
+            speakers[speaker] = i
+            for wav_name in os.listdir(os.path.join(self.in_dir, speaker)):
+                if ".wav" not in wav_name:
+                    continue
+
+                basename = wav_name.split(".")[0]
+                tg_path = self.get_tg_path(speaker, basename)
+                if os.path.exists(tg_path):
+                    speaker_list.append(speaker)
+                    basename_list.append(basename)
+
+        results = thread_map(self.process_utterance, speaker_list, basename_list, chunksize=100)
+
+        for ret in results:
+            if ret is None:
+                continue
+            
+            info, pitch, energy, n = ret
+            out.append(info)
+        
+            if len(pitch) > 0:
+                pitch_scaler.partial_fit(pitch.reshape((-1, 1)))
+            if len(energy) > 0:
+                energy_scaler.partial_fit(energy.reshape((-1, 1)))
+            n_frames += n
+        """
 
         print("Computing statistic quantities ...")
         # Perform normalization if necessary
@@ -155,9 +197,7 @@ class Preprocessor:
     def process_utterance(self, speaker, basename):
         wav_path = os.path.join(self.in_dir, speaker, "{}.wav".format(basename))
         text_path = os.path.join(self.in_dir, speaker, "{}.lab".format(basename))
-        tg_path = os.path.join(
-            self.out_dir, "TextGrid", speaker, "{}.TextGrid".format(basename)
-        )
+        tg_path = self.get_tg_path(speaker, basename)
 
         # Get alignments
         textgrid = tgt.io.read_textgrid(tg_path)

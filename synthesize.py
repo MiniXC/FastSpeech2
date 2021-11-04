@@ -28,6 +28,19 @@ def read_lexicon(lex_path):
                 lexicon[word.lower()] = phones
     return lexicon
 
+def preprocess_de_phones(phones, preprocess_config):
+    phones = "{" + "}{".join(phones.split()) + "}"
+
+    print("Phoneme Sequence: {}".format(phones))
+    sequence = np.array(
+        text_to_sequence(
+            phones, preprocess_config["preprocessing"]["text"]["text_cleaners"]
+        )
+    )
+
+    print(sequence)
+
+    return np.array(sequence)
 
 def preprocess_english(text, preprocess_config):
     text = text.rstrip(punctuation)
@@ -132,6 +145,12 @@ if __name__ == "__main__":
         help="raw text to synthesize, for single-sentence mode only",
     )
     parser.add_argument(
+        "--phones",
+        type=str,
+        default=None,
+        help="raw phones to synthesize, for single-sentence mode only",
+    )
+    parser.add_argument(
         "--speaker_id",
         type=int,
         default=0,
@@ -174,7 +193,7 @@ if __name__ == "__main__":
     if args.mode == "batch":
         assert args.source is not None and args.text is None
     if args.mode == "single":
-        assert args.source is None and args.text is not None
+        assert args.source is None and (args.text is not None or args.phones is not None)
 
     # Read Config
     preprocess_config = yaml.load(
@@ -204,9 +223,13 @@ if __name__ == "__main__":
         speakers = np.array([args.speaker_id])
         if preprocess_config["preprocessing"]["text"]["language"] == "en":
             texts = np.array([preprocess_english(args.text, preprocess_config)])
+        if preprocess_config["preprocessing"]["text"]["language"] == "de":
+            texts = np.array([preprocess_de_phones(args.phones, preprocess_config)])
+        #    texts = np.array([preprocess_english(args.text, preprocess_config)])
         elif preprocess_config["preprocessing"]["text"]["language"] == "zh":
             texts = np.array([preprocess_mandarin(args.text, preprocess_config)])
         text_lens = np.array([len(texts[0])])
+        print(ids)
         batchs = [(ids, raw_texts, speakers, texts, text_lens, max(text_lens))]
 
     control_values = args.pitch_control, args.energy_control, args.duration_control

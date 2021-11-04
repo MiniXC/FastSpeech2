@@ -1,0 +1,5 @@
+005-GE005-144	Beam too narrow
+011-GE011-122	Beam too narrow
+040-GE040-94	Beam too narrow
+043-GE043-117	Beam too narrow
+047-GE047-65	Beam too narrow

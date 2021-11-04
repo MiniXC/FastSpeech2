@@ -1,0 +1,3 @@
+python3 synthesize.py --text "die winzer aus aloxe und aus ürzig genießen die edlen gewächse unserer gemeinden und zollen dem göttertrank wein allen respekt" --phones \
+"d il v i n ts etu r a u s a l o k s etu u n t a u s ue r ts i k g etu n il s etu n d il el d l etu n g etu v e k s etu u n z etu r etu r g etu m a i n d etu n u n t ts o l etu n d el m g oe t etu r t r a ng k v aI n a l etu n r el s p e k t" \
+--restore_step 10000 --mode single -p config/GlobalPhone/preprocess.yaml -m config/GlobalPhone/model.yaml -t config/GlobalPhone/train.yaml --speaker_id 1

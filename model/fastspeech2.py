@@ -64,6 +64,8 @@ class FastSpeech2(nn.Module):
         )
 
         output = self.encoder(texts, src_masks)
+        #print(output.shape, texts.shape)
+        #print(p_targets.shape)
 
         if self.speaker_emb is not None:
             output = output + self.speaker_emb(speakers).unsqueeze(1).expand(
