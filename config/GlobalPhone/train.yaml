@@ -1,7 +1,7 @@
 path:
-  ckpt_path: "./output/ckpt/GlobalPhoneGerman"
-  log_path: "./output/log/GlobalPhoneGerman"
-  result_path: "./output/result/GlobalPhoneGerman"
+  ckpt_path: "./output/ckpt/GlobalPhoneGermanIPA"
+  log_path: "./output/log/GlobalPhoneGermanIPA"
+  result_path: "./output/result/GlobalPhoneGermanIPA"
 optimizer:
   batch_size: 16
   betas: [0.9, 0.98]

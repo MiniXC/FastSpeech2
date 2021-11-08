@@ -72,6 +72,9 @@ def main(args, configs):
     outer_bar.n = args.restore_step
     outer_bar.update()
 
+    best_loss = float('inf')
+    not_improved = 0
+
     while True:
         inner_bar = tqdm(total=len(loader), desc="Epoch {}".format(epoch), position=1)
         for batchs in loader:
@@ -141,10 +144,36 @@ def main(args, configs):
 
                 if step % val_step == 0:
                     model.eval()
-                    message = evaluate(model, step, configs, val_logger, vocoder)
+                    message, loss_means = evaluate(model, step, configs, val_logger, vocoder)
                     with open(os.path.join(val_log_path, "log.txt"), "a") as f:
                         f.write(message + "\n")
                     outer_bar.write(message)
+
+                    if loss_means[0] < best_loss:
+                        best_loss = loss_means[0]
+                        not_improved = 0
+                        torch.save(
+                            {
+                                "model": model.module.state_dict(),
+                                "optimizer": optimizer._optimizer.state_dict(),
+                            },
+                            os.path.join(
+                                train_config["path"]["ckpt_path"],
+                                "best.pth.tar",
+                            ),
+                        )
+                        msg = f"saving new best model with validation loss {best_loss}"
+                        with open(os.path.join(val_log_path, "log.txt"), "a") as f:
+                            f.write(msg + "\n")
+                        outer_bar.write(msg)
+                    else:
+                        not_improved += 1
+                        if not_improved >= 5:
+                            msg = f"validation loss not improved {not_improved} times, early stopping"
+                            with open(os.path.join(val_log_path, "log.txt"), "a") as f:
+                                f.write(msg + "\n")
+                            outer_bar.write(msg)
+                            quit()
 
                     model.train()
 

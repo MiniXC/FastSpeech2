@@ -25,9 +25,10 @@ def text_to_sequence(text, cleaner_names):
     Returns:
       List of integers corresponding to the symbols in the text
     """
-    sequence = []
 
     # Check for curly braces and treat their contents as ARPAbet:
+    """
+    sequence = []
     while len(text):
         m = _curly_re.match(text)
 
@@ -37,8 +38,9 @@ def text_to_sequence(text, cleaner_names):
         sequence += _symbols_to_sequence(_clean_text(m.group(1), cleaner_names))
         sequence += _arpabet_to_sequence(m.group(2))
         text = m.group(3)
+    """
 
-    return sequence
+    return _symbols_to_sequence(text.replace("{", "").replace("}", "").split(" "))
 
 
 def sequence_to_text(sequence):

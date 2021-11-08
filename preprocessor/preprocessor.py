@@ -13,6 +13,8 @@ from tqdm import tqdm
 
 import audio as Audio
 
+from .convert_phones import convert_phones
+
 
 class Preprocessor:
     def __init__(self, config):
@@ -99,38 +101,6 @@ class Preprocessor:
 
                 n_frames += n
 
-        """
-        speakers = {}
-        speaker_list = []
-        basename_list = []
-        for i, speaker in enumerate(tqdm(os.listdir(self.in_dir))):
-            speakers[speaker] = i
-            for wav_name in os.listdir(os.path.join(self.in_dir, speaker)):
-                if ".wav" not in wav_name:
-                    continue
-
-                basename = wav_name.split(".")[0]
-                tg_path = self.get_tg_path(speaker, basename)
-                if os.path.exists(tg_path):
-                    speaker_list.append(speaker)
-                    basename_list.append(basename)
-
-        results = thread_map(self.process_utterance, speaker_list, basename_list, chunksize=100)
-
-        for ret in results:
-            if ret is None:
-                continue
-            
-            info, pitch, energy, n = ret
-            out.append(info)
-        
-            if len(pitch) > 0:
-                pitch_scaler.partial_fit(pitch.reshape((-1, 1)))
-            if len(energy) > 0:
-                energy_scaler.partial_fit(energy.reshape((-1, 1)))
-            n_frames += n
-        """
-
         print("Computing statistic quantities ...")
         # Perform normalization if necessary
         if self.pitch_normalization:
@@ -204,9 +174,53 @@ class Preprocessor:
         phone, duration, start, end = self.get_alignment(
             textgrid.get_tier_by_name("phones")
         )
+
+
+        n_phone = convert_phones(phone, "gp", "ipa")
+
+        if len(n_phone) != len(phone):
+            print(phone)
+            print(n_phone)
+            raise
+
+        text = "{" + " ".join(n_phone) + "}"
+        if start >= end:
+            return None
+
+        """
+        for i, p in enumerate(phone):
+            if p not in ["sil", "sp", "spn"]:
+                n_phone.append(self.ipa.convert_phonetics(self.gp2x[p], "xsampa", "ipa")[-1])
+            else:
+                n_phone.append(p)
+        
+        text = "{" + " ".join(n_phone) + "}"
+        if start >= end:
+            return None
+        """
+
+        """
+        for i, p in enumerate(phone):
+            if p not in ["sil", "sp", "spn"]:
+                n_phone.append(self.gp2x[p])
+            else:
+                sil_is.append(len(n_phone))
+        converted_ipa = self.ipa.convert_phonetics(" ".join(n_phone), "xsampa", "ipa")[-1]
+        phone = [str(c) for c in ipastring.IPAString(unicode_string=converted_ipa)]
+        phone = "".join(phone).split(" ")
+        s_off = 0
+        for s in sil_is:
+            phone.insert(s + s_off, "spn")
+            s_off += 1
+        if len(sil_is) > 0:
+            print(phone)
+
+        assert old_len_phone == len(phone)
+
         text = "{" + " ".join(phone) + "}"
         if start >= end:
             return None
+        """
 
         # Read and trim wav files
         wav, _ = librosa.load(wav_path)

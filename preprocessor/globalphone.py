@@ -34,9 +34,11 @@ def process_speaker(config, speaker, trl):
             wav_file = raw_file.replace(".raw", ".wav")
             try:
                 subprocess.check_call(f"shorten -x {utt_file} {raw_file} 2>/dev/null", shell=True)
-                subprocess.check_call(f"sox -t raw -r {sampling_rate} -e signed-integer -b 16 {raw_file} -t wav {wav_file} && rm -f {raw_file}", shell=True)
+                subprocess.check_call(f"sox -t raw -r 16000 -e signed-integer -b 16 {raw_file} -t wav {wav_file}.temp && rm -f {raw_file}", shell=True)
+                subprocess.check_call(f"sox -G -v 0.9 {wav_file}.temp -r {sampling_rate} {wav_file} && rm {wav_file}.temp", shell=True)
                 skipped = False
-            except subprocess.CalledProcessError:
+            except subprocess.CalledProcessError as e:
+                print(e.__repr__())
                 print(f"skipped {base_name}")
                 skipped = True
             if not skipped:
@@ -44,27 +46,10 @@ def process_speaker(config, speaker, trl):
                     tokens = []
                     has_num = False
                     try:
-                        for t in re.split("[\s-]", trl_lines[i+1].lower()):
-                            if not has_numbers(t):
-                                tokens.append(t)
-                            else:
-                                has_num = True
-                                # e.g. 6:5 (soccer)
-                                if ":" in t:
-                                    tokens.append(num2words(t.split(":")[0], lang="de"))
-                                    tokens.append("zu")
-                                    tokens.append(num2words(t.split(":")[1], lang="de"))
-                                elif has_alpha(t):
-                                    tokens.append(re.sub("\d+", num2words(re.findall(r'\d+', t)[0], lang="de"), t))
-                                elif len(t) == 4 and t[:2] == "19" or t[:2] == "20":
-                                    tokens.append(num2words(t, lang="de", to="year"))
-                                else:
-                                    tokens.append(num2words(t.replace(",", "."), lang="de"))
+                        for t in re.split("[\s]", trl_lines[i+1].lower()):
+                            tokens.append(t)
                     except:
                         print(trl_lines[i+1])
-
-                    # if has_num:
-                    #     print(trl_lines[i+1].lower(), "\n", " ".join(tokens))
 
                     f1.write(" ".join(tokens).lower())
                     
