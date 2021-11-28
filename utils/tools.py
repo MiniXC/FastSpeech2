@@ -262,6 +262,9 @@ def plot_mel(data, stats, titles):
 
 def pad_1D(inputs, PAD=0):
     def pad_data(x, length, PAD):
+        if isinstance(x, str):
+            print(x)
+            raise
         x_padded = np.pad(
             x, (0, length - x.shape[0]), mode="constant", constant_values=PAD
         )

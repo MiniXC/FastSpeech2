@@ -2,6 +2,8 @@ import re
 import argparse
 from string import punctuation
 
+from glob import glob
+
 import torch
 import yaml
 import numpy as np
@@ -12,10 +14,28 @@ from pypinyin import pinyin, Style
 from utils.model import get_model, get_vocoder
 from utils.tools import to_device, synth_samples
 from dataset import TextDataset
-from text import text_to_sequence
+from text import sequence_to_text, symbols, text_to_sequence, actual_symbols
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from preprocessor.convert_phones import convert_phones
+from tqdm.auto import tqdm
 
+from dataset import pad_1D
+
+import eng_to_ipa as eng2ipa
+from g2p_en import G2p
+
+ger2en = {
+    "t": "t̪",
+    "ð": "d̪",
+    "ʃ": "ʃ̺",
+    "w": "v",
+    "θ": "s",
+    "r": "ʀ",
+    "n": "n̪",
+    "l": "l̪",
+    "d": "d̪",
+}
 
 def read_lexicon(lex_path):
     lexicon = {}
@@ -29,6 +49,7 @@ def read_lexicon(lex_path):
     return lexicon
 
 def preprocess_de_phones(phones, preprocess_config):
+    """
     phones = "{" + "}{".join(phones.split()) + "}"
 
     print("Phoneme Sequence: {}".format(phones))
@@ -39,6 +60,48 @@ def preprocess_de_phones(phones, preprocess_config):
     )
 
     print(sequence)
+    """
+
+    ger2en = {
+        "t": "t̪",
+        "ð": "d̪",
+        "ʃ": "ʃ̺",
+        "w": "v",
+        "θ": "s",
+        "r": "ʀ",
+        "n": "n̪",
+        "l": "l̪",
+        "d": "d̪",
+    }
+
+    text = phones.rstrip(punctuation)
+    text = eng2ipa.convert(text)
+    text = text.replace("ʧ", "tʃ").replace("ˈ", "")
+    text = text.split()
+    text[1] = "woːz"
+    text[2] = "kætʀiːn"
+    text[4] = "æt"
+    print(text)
+    max_n = 4
+    toks = []
+    for t in text:
+        while len(t) > 0:
+            for n in list(range(max_n+1))[1:][::-1]:
+                if t[:n] in symbols:
+                    if t[:n] not in actual_symbols:
+                        print(t[:n], "->", ger2en[t[:n]])
+                        toks.append(ger2en[t[:n]])
+                    else:
+                        toks.append(t[:n])
+                    t = t[n:]
+                elif n == 1:
+                    print(t[:n], "not in symbols")
+                    raise
+                if len(t) == 0:
+                    break
+        #toks.append("spn")
+    
+    sequence = text_to_sequence(" ".join(toks))
 
     return np.array(sequence)
 
@@ -124,7 +187,7 @@ def synthesize(model, step, configs, vocoder, batchs, control_values):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--restore_step", type=int, required=True)
+    parser.add_argument("--restore_step", type=str, required=True)
     parser.add_argument(
         "--mode",
         type=str,
@@ -137,6 +200,12 @@ if __name__ == "__main__":
         type=str,
         default=None,
         help="path to a source file with format like train.txt and val.txt, for batch mode only",
+    )
+    parser.add_argument(
+        "--target",
+        type=str,
+        default=None,
+        help="path to a target directory",
     )
     parser.add_argument(
         "--text",
@@ -212,25 +281,39 @@ if __name__ == "__main__":
     # Preprocess texts
     if args.mode == "batch":
         # Get dataset
-        dataset = TextDataset(args.source, preprocess_config)
-        batchs = DataLoader(
-            dataset,
-            batch_size=8,
-            collate_fn=dataset.collate_fn,
-        )
+        # dataset = TextDataset(args.source, preprocess_config)
+        # batchs = DataLoader(
+        #     dataset,
+        #     batch_size=8,
+        #     collate_fn=dataset.collate_fn,
+        # )
+        g2p = G2p()
+        transcripts = sorted(list(glob(args.source+"/**/*.lab",recursive=True)))
+        transcripts = [open(t).read() for t in transcripts]
+        for i, transcript in enumerate(tqdm(transcripts)):
+            transcript = re.sub(r"([,;.\-\?\!\s+\"])", " ", transcript)
+            transcripts[i] = [p for p in g2p(transcript) if p != " "]
+            transcripts[i] = convert_phones(transcripts[i], "arpabet")
+            for j, t in enumerate(transcripts[i]):
+                if t in ger2en:
+                    transcripts[i][j] = ger2en[t]
+            sequence = text_to_sequence(" ".join(transcripts[i]))
+            transcripts[i] = np.array(sequence)
+        for transcripts in DataLoader(transcripts, batch_size=8, collate_fn=pad_1D):
+            print(transcripts)
     if args.mode == "single":
         ids = raw_texts = [args.text[:100]]
         speakers = np.array([args.speaker_id])
         if preprocess_config["preprocessing"]["text"]["language"] == "en":
             texts = np.array([preprocess_english(args.text, preprocess_config)])
         if preprocess_config["preprocessing"]["text"]["language"] == "de":
-            texts = np.array([preprocess_de_phones(args.phones, preprocess_config)])
-        #    texts = np.array([preprocess_english(args.text, preprocess_config)])
+            texts = np.array([preprocess_de_phones(args.text, preprocess_config)])
         elif preprocess_config["preprocessing"]["text"]["language"] == "zh":
             texts = np.array([preprocess_mandarin(args.text, preprocess_config)])
         text_lens = np.array([len(texts[0])])
         print(ids)
         batchs = [(ids, raw_texts, speakers, texts, text_lens, max(text_lens))]
+        print(batchs)
 
     control_values = args.pitch_control, args.energy_control, args.duration_control
 

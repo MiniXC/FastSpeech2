@@ -1,0 +1,1 @@
+python3 synthesize.py --source "raw_data/LibriTTS" --restore_step best --mode batch -p config/GlobalPhone/preprocess.yaml -m config/GlobalPhone/model.yaml -t config/GlobalPhone/train.yaml
